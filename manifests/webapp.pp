@@ -15,7 +15,7 @@
   
 define tomcat::webapp(
 	$username,
-	$number = 1,
+	$number = 1, # Used to allocate the port number to the tomcat process
 	$java_opts = "-Djava.awt.headless=true -Xmx128M",
 	$server_host_config = "",
 	$description = $title,
@@ -33,7 +33,6 @@ define tomcat::webapp(
 		tomcat::webapp::tomcat { $username:
 			username => $username, 
 			number => $number,
-			java_opts => $java_opts,
 			server_host_config => $server_host_config,
 			webapp_base => $webapp_base,
 			require => Tomcat::Webapp::User[$username],
@@ -41,6 +40,7 @@ define tomcat::webapp(
 		tomcat::webapp::service { $username:
 			username => $username, 
 			webapp_base => $webapp_base,
+			java_opts => $java_opts,
 			max_number_open_files => $max_number_open_files,
 			require => [
 				Tomcat::Webapp::Tomcat[$username],

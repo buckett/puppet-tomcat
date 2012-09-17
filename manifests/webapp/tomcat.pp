@@ -1,9 +1,13 @@
+# This creates a tomcat contains into which webapps can be deployed.
+
 define tomcat::webapp::tomcat ($username,
 	$number = 1,
-	$java_opts = "-Djava.awt.headless=true -Xmx128M",
 	$server_host_config = "",
+	$http = true,
+	$ajp = true,
 	$webapp_base = "/srv") {
-		
+	
+	
 	file {
 		"${webapp_base}/${username}/tomcat" :
 			ensure => directory,
@@ -12,53 +16,60 @@ define tomcat::webapp::tomcat ($username,
 			mode => 0755,
 			require => [Class["tomcat"], Tomcat::Webapp::User[$username]],
 	}
+	
+	# The stuff outside /src
+	file { "/var/log/${username}" :
+		ensure => directory,
+		owner => $username,
+		group => adm,
+		mode => 0750,
+	}
+	
+	file { "/var/cache/${username}" :
+		ensure => directory,
+		owner => $username,
+		group => adm,
+		mode => 0750,
+	}
+	
+	file { "/etc/${username}" :
+			ensure => link,
+			target => "${webapp_base}/${username}/tomcat/conf",
+	}
+	
 	file {
 		"${webapp_base}/${username}/tomcat/logs" :
-			ensure => directory,
+			ensure => link,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
+			target => "/var/log/${username}",
 	}
 	file {
-		"${webapp_base}/${username}/tomcat/temp" :
-			ensure => directory,
+		"${webapp_base}/${username}/tomcat/work" :
+			ensure => link,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
+			target => "/var/cache/${username}",
 	}
+	
+	
 	file {
 		"${webapp_base}/${username}/tomcat/webapps" :
 			ensure => directory,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
 	}
-	file {
-		"${webapp_base}/${username}/tomcat/work" :
-			ensure => directory,
-			owner => $username,
-			group => $username,
-			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
-	}
-	file {
-		"${webapp_base}/${username}/tomcat/bin" :
-			ensure => directory,
-			owner => $username,
-			group => $username,
-			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
-	}
+	
+	# Need todo more.
 	file {
 		"${webapp_base}/${username}/tomcat/conf" :
 			ensure => directory,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
 	}
 	file {
 		"${webapp_base}/${username}/tomcat/lib" :
@@ -66,7 +77,6 @@ define tomcat::webapp::tomcat ($username,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
 	}
 	file {
 		"${webapp_base}/${username}/tomcat/shared" :
@@ -74,7 +84,6 @@ define tomcat::webapp::tomcat ($username,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
 	}
 	file {
 		"${webapp_base}/${username}/tomcat/shared/classes" :
@@ -82,47 +91,13 @@ define tomcat::webapp::tomcat ($username,
 			owner => $username,
 			group => $username,
 			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat"],
-	}
-	file {
-		"${webapp_base}/${username}/tomcat/bin/bootstrap.jar" :
-			ensure => link,
-			target => "/usr/share/tomcat6/bin/bootstrap.jar",
-			require => File["${webapp_base}/${username}/tomcat/bin"],
-	}
-	file {
-		"${webapp_base}/${username}/tomcat/bin/setenv.sh" :
-			ensure => file,
-			owner => $username,
-			group => $username,
-			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat/bin"],
-			content => template('tomcat/bin/setenv.sh.erb'),
-	}
-	file {
-		"${webapp_base}/${username}/tomcat/bin/shutdown.sh" :
-			ensure => file,
-			owner => $username,
-			group => $username,
-			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat/bin"],
-			content => template('tomcat/bin/shutdown.sh.erb'),
-	}
-	file {
-		"${webapp_base}/${username}/tomcat/bin/startup.sh" :
-			ensure => file,
-			owner => $username,
-			group => $username,
-			mode => 0755,
-			require => File["${webapp_base}/${username}/tomcat/bin"],
-			content => template('tomcat/bin/startup.sh.erb'),
 	}
 	file {
 		"${webapp_base}/${username}/tomcat/conf/server.xml" :
 			ensure => file,
 			owner => $username,
 			group => $username,
-			mode => 0644,
+			mode => 0600, # We have passwords in here
 			require => File["${webapp_base}/${username}/tomcat/conf"],
 			content => template('tomcat/conf/server.xml.erb'),
 	}
@@ -134,6 +109,21 @@ define tomcat::webapp::tomcat ($username,
 			mode => 0644,
 			source => "puppet:///modules/tomcat/conf/catalina.policy",
 			require => File["${webapp_base}/${username}/tomcat/conf"],
+	}
+	file {
+		"${webapp_base}/${username}/tomcat/conf/policy.d" :
+			ensure => directory,
+			owner => $username,
+			group => $username,
+			mode => 755,
+	}
+	file {
+		"${webapp_base}/${username}/tomcat/conf/policy.d/none.policy" :
+			ensure => present,
+			owner => $username,
+			group => $username,
+			mode => 0644,
+			source => "puppet:///modules/tomcat/conf/policy.d/none.policy",
 	}
 	file {
 		"${webapp_base}/${username}/tomcat/conf/catalina.properties" :
@@ -179,15 +169,5 @@ define tomcat::webapp::tomcat ($username,
 			mode => 0644,
 			source => "puppet:///modules/tomcat/conf/web.xml",
 			require => File["${webapp_base}/${username}/tomcat/conf"],
-	}
-	file {
-		"/etc/${username}" :
-			ensure => link,
-			target => "${webapp_base}/${username}/tomcat/conf",
-	}
-	file {
-		"/var/log/${username}" :
-			ensure => link,
-			target => "${webapp_base}/${username}/tomcat/logs",
 	}
 }
